@@ -5,15 +5,38 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>X20 Max Diagnostic</title>
 <style>
-:root{font-family:system-ui,-apple-system,Roboto,sans-serif;color:#17202a;background:#f3f5f7}*{box-sizing:border-box}body{margin:0;padding:18px 14px 40px}.wrap{max-width:760px;margin:auto}h1{font-size:23px;margin:4px 0 2px}.sub{color:#65717d;font-size:13px;margin-bottom:16px}.card{background:#fff;border:1px solid #dce2e7;border-radius:14px;padding:14px;margin:10px 0;box-shadow:0 1px 2px #0000000c}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:520px){.row{grid-template-columns:1fr}}label{display:block;font-size:12px;font-weight:700;color:#53606c;margin:2px 0 5px}input{width:100%;padding:12px;border:1px solid #cbd3da;border-radius:10px;font-size:15px;background:#fff}button{border:0;border-radius:10px;padding:12px 13px;font-weight:700;font-size:14px;background:#111827;color:#fff;margin:5px 5px 5px 0}button.secondary{background:#e9edf1;color:#17202a}button.warn{background:#7c4a03}button:disabled{opacity:.45}.status{padding:10px;border-radius:10px;background:#eef2f5;font-size:13px;white-space:pre-wrap}.status.ok{background:#e8f6ec;color:#146c2e}.status.err{background:#fdecec;color:#9b1c1c}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}@media(max-width:520px){.grid{grid-template-columns:1fr}}.metric{border:1px solid #e2e7eb;border-radius:10px;padding:10px}.metric small{display:block;color:#687580}.metric b{font-size:17px;word-break:break-word}.fault{color:#a12622}.good{color:#137333}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;border-bottom:1px solid #e5e9ed;padding:8px 5px;vertical-align:top}th{color:#5f6c77;position:sticky;top:0;background:#fff}.scroll{overflow:auto;max-height:430px}code{font-size:11px}.tiny{font-size:11px;color:#6b7782}.pill{display:inline-block;padding:3px 7px;border-radius:999px;background:#eef2f5;font-size:11px}.changed{background:#fff5cf}.actions{display:flex;flex-wrap:wrap;gap:3px}.check{display:flex;align-items:center;gap:7px;font-size:12px;color:#53606c;margin-top:8px}.check input{width:auto}.divider{height:1px;background:#e6eaee;margin:12px 0}
+:root{font-family:system-ui,-apple-system,Roboto,sans-serif;color:#17202a;background:#f3f5f7}*{box-sizing:border-box}body{margin:0;padding:18px 14px 40px}.wrap{max-width:760px;margin:auto}h1{font-size:23px;margin:4px 0 2px}.sub{color:#65717d;font-size:13px;margin-bottom:16px}.card{background:#fff;border:1px solid #dce2e7;border-radius:14px;padding:14px;margin:10px 0;box-shadow:0 1px 2px #0000000c}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:520px){.row{grid-template-columns:1fr}}label{display:block;font-size:12px;font-weight:700;color:#53606c;margin:2px 0 5px}input{width:100%;padding:12px;border:1px solid #cbd3da;border-radius:10px;font-size:15px;background:#fff}button{border:0;border-radius:10px;padding:12px 13px;font-weight:700;font-size:14px;background:#111827;color:#fff;margin:5px 5px 5px 0}button.secondary{background:#e9edf1;color:#17202a}button.warn{background:#7c4a03}button.goodbtn{background:#176b36}button:disabled{opacity:.45}.status{padding:10px;border-radius:10px;background:#eef2f5;font-size:13px;white-space:pre-wrap}.status.ok{background:#e8f6ec;color:#146c2e}.status.err{background:#fdecec;color:#9b1c1c}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}@media(max-width:520px){.grid{grid-template-columns:1fr}}.metric{border:1px solid #e2e7eb;border-radius:10px;padding:10px}.metric small{display:block;color:#687580}.metric b{font-size:17px;word-break:break-word}.fault{color:#a12622}.good{color:#137333}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;border-bottom:1px solid #e5e9ed;padding:8px 5px;vertical-align:top}th{color:#5f6c77;position:sticky;top:0;background:#fff}.scroll{overflow:auto;max-height:430px}code{font-size:11px}.tiny{font-size:11px;color:#6b7782}.pill{display:inline-block;padding:3px 7px;border-radius:999px;background:#eef2f5;font-size:11px}.changed{background:#fff5cf}.actions{display:flex;flex-wrap:wrap;gap:3px}.check{display:flex;align-items:center;gap:7px;font-size:12px;color:#53606c;margin-top:8px}.check input{width:auto}.divider{height:1px;background:#e6eaee;margin:12px 0}.device{border:1px solid #e1e6ea;border-radius:10px;padding:10px;margin:7px 0}.device b{display:block}.device .meta{font-size:11px;color:#687580;word-break:break-all;margin:3px 0}.qr{display:none;max-width:210px;width:55%;margin:10px auto;border:1px solid #ddd;border-radius:8px}.step{font-size:12px;color:#53606c;margin:8px 0}.step strong{color:#17202a}
 </style>
 </head>
 <body><div class="wrap">
 <h1>Xiaomi X20 Max — Diagnóstico</h1>
-<div class="sub">Leitura local e somente leitura via MiIO/MIoT · modelo esperado: <b>xiaomi.vacuum.d109gl</b></div>
+<div class="sub">Leitura local via MiIO/MIoT · modelo esperado: <b>xiaomi.vacuum.d109gl</b> · v0.2</div>
 
 <div class="card">
-  <div class="row">
+  <b>1. Encontrar o robô na rede</b>
+  <p class="tiny">O scan envia apenas o pacote público MiIO “hello” na sua rede Wi‑Fi. Não precisa de token.</p>
+  <button class="secondary" onclick="scanNetwork()">Escanear IPs MiIO</button>
+  <div id="scanStatus" class="status">Conecte o celular ao mesmo Wi‑Fi do X20 Max.</div>
+  <div id="scanDevices"></div>
+</div>
+
+<div class="card">
+  <b>2. Obter token pela Xiaomi Cloud</b>
+  <p class="tiny">O login acontece no domínio oficial <b>account.xiaomi.com</b>. O app não pede nem recebe sua senha. A sessão Cloud fica somente na memória do app.</p>
+  <div class="step"><strong>A.</strong> Gere uma sessão de login.</div>
+  <button class="secondary" onclick="cloudStart()">Iniciar login Xiaomi</button>
+  <div class="step"><strong>B.</strong> Abra o login oficial no navegador e autorize sua conta. Se preferir, o QR abaixo pode ser escaneado por outro aparelho.</div>
+  <button id="openLoginBtn" class="secondary" disabled onclick="openCloudLogin()">Abrir login oficial</button>
+  <img id="qrImage" class="qr" alt="QR Xiaomi">
+  <div class="step"><strong>C.</strong> Volte para este app e confirme.</div>
+  <button id="verifyLoginBtn" class="goodbtn" disabled onclick="cloudPoll()">Já autorizei — buscar X20 Max</button>
+  <div id="cloudStatus" class="status">Nenhuma sessão Xiaomi iniciada.</div>
+  <div id="cloudDevices"></div>
+</div>
+
+<div class="card">
+  <b>3. Conexão local</b>
+  <div class="row" style="margin-top:10px">
     <div><label>IP do robô</label><input id="ip" inputmode="decimal" placeholder="192.168.1.123"></div>
     <div><label>Token MiIO (32 hex)</label><input id="token" type="password" autocapitalize="off" autocomplete="off" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"></div>
   </div>
@@ -55,7 +78,7 @@
 </div>
 
 <div class="card tiny">
-  Segurança: esta versão implementa apenas <code>get_properties</code>. Não há código para <code>set_properties</code>, iniciar limpeza, mover o robô ou executar ações. O token é usado apenas para criptografar a comunicação MiIO local com o IP informado.
+  Segurança: os comandos locais implementados são apenas MiIO <code>hello</code> e MIoT <code>get_properties</code>. Não há <code>set_properties</code>, movimento, início de limpeza ou ações MIoT. O token obtido da Xiaomi Cloud é usado para sua própria conexão local e não é enviado ao projeto/GitHub.
 </div>
 </div>
 <script>
@@ -71,16 +94,38 @@ const DIAG=[
  {siid:2,piid:67,name:'action-result'},
  {siid:2,piid:72,name:'notice'}
 ];
-let pending={}, snapshotAData=null, lastResults=[];
+let pending={}, snapshotAData=null, lastResults=[], cloudLoginUrl='';
 const $=id=>document.getElementById(id);
 function rid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
-function setStatus(s,kind=''){const e=$('status');e.textContent=s;e.className='status '+kind}
+function statusEl(id,s,kind=''){const e=$(id);e.textContent=s;e.className='status '+kind}
+function setStatus(s,kind=''){statusEl('status',s,kind)}
 function valText(v){if(v===undefined)return '—';if(v===null)return 'null';if(typeof v==='object')return JSON.stringify(v);return String(v)}
 function savePrefs(){if($('remember').checked){localStorage.setItem('ip',$('ip').value.trim());localStorage.setItem('token',$('token').value.trim());localStorage.setItem('remember','1')}else{localStorage.removeItem('token');localStorage.setItem('ip',$('ip').value.trim());localStorage.removeItem('remember')}}
 function restorePrefs(){$('ip').value=localStorage.getItem('ip')||'';if(localStorage.getItem('remember')==='1'){$('remember').checked=true;$('token').value=localStorage.getItem('token')||''}}
 function validate(requireToken=true){const ip=$('ip').value.trim(),token=$('token').value.trim();if(!ip){setStatus('Informe o IP do robô.','err');return null}if(requireToken&&!/^[0-9a-fA-F]{32}$/.test(token)){setStatus('Informe um token MiIO válido com 32 caracteres hexadecimais.','err');return null}savePrefs();return {ip,token}}
+function rawNative(call){return new Promise((resolve,reject)=>{const id=rid();pending[id]={resolve,reject};try{call(id)}catch(e){delete pending[id];reject(e)}})}
 function nativeCall(kind,props){return new Promise((resolve,reject)=>{const cfg=validate(kind!=='hello');if(!cfg){reject(new Error('dados inválidos'));return}const id=rid();pending[id]={resolve,reject};setStatus(kind==='hello'?'Enviando MiIO hello para '+cfg.ip+'…':'Consultando o X20 Max…');try{if(kind==='hello')AndroidMiio.hello(id,cfg.ip);else AndroidMiio.query(id,cfg.ip,cfg.token,JSON.stringify(props))}catch(e){delete pending[id];reject(e)}})}
 window.onNativeResult=function(id,json){const p=pending[id];if(!p)return;delete pending[id];try{const data=JSON.parse(json);if(data.ok)p.resolve(data);else p.reject(new Error((data.error||'Erro desconhecido')+' ['+(data.type||'')+']'))}catch(e){p.reject(e)}};
+window.onExternalOpenError=function(msg){statusEl('cloudStatus','Não foi possível abrir o navegador: '+msg,'err')};
+
+async function scanNetwork(){
+ statusEl('scanStatus','Escaneando a rede local por dispositivos MiIO…');$('scanDevices').innerHTML='';
+ try{const d=await rawNative(id=>AndroidMiio.scanIps(id));const list=d.devices||[];if(!list.length){statusEl('scanStatus','Scan concluído em '+d.localIp+'/'+d.effectivePrefixLength+', mas nenhum dispositivo MiIO respondeu. Confirme o Wi‑Fi e tente novamente.','err');return}
+ statusEl('scanStatus','Encontrados '+list.length+' dispositivo(s) MiIO. Rede local: '+d.localIp+'/'+d.effectivePrefixLength,'ok');renderScanDevices(list)}catch(e){statusEl('scanStatus','Falha no scan: '+e.message,'err')}
+}
+function renderScanDevices(list){const box=$('scanDevices');box.innerHTML='';list.forEach(d=>{const el=document.createElement('div');el.className='device';const b=document.createElement('b');b.textContent=d.ip;const m=document.createElement('div');m.className='meta';m.textContent='MiIO Device ID '+d.deviceId+' · stamp '+d.stamp;const bt=document.createElement('button');bt.className='secondary';bt.textContent='Usar este IP';bt.onclick=()=>{$('ip').value=d.ip;localStorage.setItem('ip',d.ip);setStatus('IP selecionado: '+d.ip+'. Agora obtenha/informe o token.','ok')};el.append(b,m,bt);box.appendChild(el)})}
+
+async function cloudStart(){
+ statusEl('cloudStatus','Criando sessão segura de login na Xiaomi…');$('cloudDevices').innerHTML='';$('openLoginBtn').disabled=true;$('verifyLoginBtn').disabled=true;
+ try{const d=await rawNative(id=>AndroidMiio.cloudStart(id));cloudLoginUrl=d.loginUrl||'';$('openLoginBtn').disabled=!cloudLoginUrl;$('verifyLoginBtn').disabled=false;const img=$('qrImage');if(d.qrImageUrl){img.src=d.qrImageUrl;img.style.display='block'}else img.style.display='none';statusEl('cloudStatus','Sessão criada. Toque em “Abrir login oficial”, faça login/autorize e volte para este app.','ok')}catch(e){statusEl('cloudStatus','Não foi possível iniciar o login Xiaomi: '+e.message,'err')}
+}
+function openCloudLogin(){if(!cloudLoginUrl){statusEl('cloudStatus','Inicie primeiro o login Xiaomi.','err');return}AndroidMiio.openExternal(cloudLoginUrl)}
+async function cloudPoll(){
+ statusEl('cloudStatus','Verificando autorização e procurando o X20 Max nos servidores Xiaomi…');$('verifyLoginBtn').disabled=true;
+ try{const d=await rawNative(id=>AndroidMiio.cloudPoll(id));$('verifyLoginBtn').disabled=false;if(!d.authorized){statusEl('cloudStatus',d.message||'Autorização ainda não concluída.','err');return}const devices=d.devices||[];const targets=devices.filter(x=>x.model==='xiaomi.vacuum.d109gl');const shown=targets.length?targets:devices;if(!shown.length){statusEl('cloudStatus','Login confirmado, mas nenhum dispositivo foi retornado pela Xiaomi Cloud. Se sua região estiver diferente no Xiaomi Home, tente iniciar uma nova sessão.','err');return}statusEl('cloudStatus',targets.length?'X20 Max encontrado. Toque em “Usar IP + token”.':'Login confirmado. Não achei o modelo d109gl; mostrando os dispositivos retornados para conferência.',targets.length?'ok':'');renderCloudDevices(shown)}catch(e){$('verifyLoginBtn').disabled=false;statusEl('cloudStatus','Falha ao consultar Xiaomi Cloud: '+e.message,'err')}
+}
+function renderCloudDevices(list){const box=$('cloudDevices');box.innerHTML='';list.forEach(d=>{const el=document.createElement('div');el.className='device';const b=document.createElement('b');b.textContent=(d.name||'Dispositivo Xiaomi')+(d.model==='xiaomi.vacuum.d109gl'?' · X20 Max':'');const m=document.createElement('div');m.className='meta';m.textContent='modelo: '+(d.model||'—')+' · servidor: '+(d.server||'—')+' · IP: '+(d.localip||'não informado')+' · token: '+(d.token?'encontrado':'ausente');const bt=document.createElement('button');bt.className='goodbtn';bt.textContent='Usar IP + token';bt.disabled=!d.token;bt.onclick=()=>{if(d.localip)$('ip').value=d.localip;if(d.token)$('token').value=d.token;if($('remember').checked)savePrefs();setStatus('Dados do dispositivo carregados. Faça “Testar rede” e depois “Ler diagnóstico”.','ok');window.scrollTo({top:$('status').getBoundingClientRect().top+window.scrollY-100,behavior:'smooth'})};el.append(b,m,bt);box.appendChild(el)})}
+
 async function testHello(){try{const d=await nativeCall('hello');setStatus('Dispositivo MiIO respondeu. Device ID: '+d.deviceId+' · stamp: '+d.stamp,'ok')}catch(e){setStatus('Sem resposta: '+e.message+'. Confirme que o celular está no mesmo Wi‑Fi e que o IP está correto.','err')}}
 async function query(props){const d=await nativeCall('query',props);lastResults=d.results||[];render(lastResults);setStatus('Leitura concluída: '+lastResults.length+' respostas · Device ID '+d.deviceId,'ok');return lastResults}
 async function readDiagnostic(){try{const r=await query(DIAG);renderMetrics(r)}catch(e){setStatus('Falha na leitura: '+e.message,'err')}}

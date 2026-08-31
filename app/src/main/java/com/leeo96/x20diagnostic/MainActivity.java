@@ -1,6 +1,8 @@
 package com.leeo96.x20diagnostic;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
@@ -14,7 +16,8 @@ import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
     private WebView webView;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService executor = Executors.newFixedThreadPool(2);
+    private volatile XiaomiCloudClient cloudClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,6 +40,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         executor.shutdownNow();
+        cloudClient = null;
         if (webView != null) webView.destroy();
         super.onDestroy();
     }
@@ -64,8 +68,6 @@ public class MainActivity extends Activity {
         public void hello(String requestId, String ip) {
             executor.execute(() -> {
                 try {
-                    // Token is not needed for the unencrypted MiIO hello packet.
-                    // Create a placeholder token only so the same client class can be used.
                     MiioClient client = new MiioClient("00000000000000000000000000000000");
                     deliver(requestId, client.helloOnly(ip));
                 } catch (Throwable t) {
@@ -83,6 +85,63 @@ public class MainActivity extends Activity {
                     deliver(requestId, client.readProperties(ip, properties));
                 } catch (Throwable t) {
                     deliver(requestId, errorPayload(t));
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void scanIps(String requestId) {
+            executor.execute(() -> {
+                try {
+                    deliver(requestId, NetworkScanner.scan(MainActivity.this));
+                } catch (Throwable t) {
+                    deliver(requestId, errorPayload(t));
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void cloudStart(String requestId) {
+            executor.execute(() -> {
+                try {
+                    XiaomiCloudClient client = new XiaomiCloudClient();
+                    JSONObject result = client.startQrLogin();
+                    cloudClient = client;
+                    deliver(requestId, result);
+                } catch (Throwable t) {
+                    cloudClient = null;
+                    deliver(requestId, errorPayload(t));
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void cloudPoll(String requestId) {
+            executor.execute(() -> {
+                try {
+                    XiaomiCloudClient client = cloudClient;
+                    if (client == null) throw new IllegalStateException("Inicie primeiro o login Xiaomi Cloud");
+                    deliver(requestId, client.pollQrAndFetchDevices());
+                } catch (Throwable t) {
+                    deliver(requestId, errorPayload(t));
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void openExternal(String url) {
+            runOnUiThread(() -> {
+                try {
+                    Uri uri = Uri.parse(url);
+                    String host = uri.getHost();
+                    if (!"https".equalsIgnoreCase(uri.getScheme()) || host == null || !host.endsWith("xiaomi.com")) {
+                        throw new IllegalArgumentException("URL de login não pertence à Xiaomi");
+                    }
+                    startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                } catch (Throwable t) {
+                    JSONObject out = errorPayload(t);
+                    final String js = "window.onExternalOpenError(" + JSONObject.quote(out.optString("error", "Erro ao abrir login")) + ");";
+                    webView.evaluateJavascript(js, null);
                 }
             });
         }
