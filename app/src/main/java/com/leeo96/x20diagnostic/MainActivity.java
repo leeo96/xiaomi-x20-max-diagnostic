@@ -111,7 +111,7 @@ public class MainActivity extends Activity {
                     android.webkit.CookieManager wc = android.webkit.CookieManager.getInstance();
                     String accountCookies = wc.getCookie("https://account.xiaomi.com");
                     String stsCookies = wc.getCookie("https://sts.api.io.mi.com");
-                    BrowserSessionCloudClient client = new BrowserSessionCloudClient();
+                    BrowserSessionCloudClientV2 client = new BrowserSessionCloudClientV2();
                     deliver(requestId, client.fetchFromBrowserSession(accountCookies, stsCookies));
                 } catch (Throwable t) {
                     deliver(requestId, errorPayload(t));
