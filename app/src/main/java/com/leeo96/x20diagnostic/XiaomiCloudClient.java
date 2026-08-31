@@ -29,18 +29,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-
 /**
- * Minimal Xiaomi Cloud client used only to obtain the user's own MiIO device token.
+ * Xiaomi Cloud client used only to retrieve the user's own device metadata/token.
  *
- * Authentication is performed with Xiaomi's QR/login-link flow. Credentials are not
- * entered into this app. The cloud session exists only in memory and is discarded
- * when the Activity/process is destroyed.
- *
- * The cloud request/signing flow follows the public Xiaomi Cloud protocol used by
- * open-source integrations such as Xiaomi Cloud Tokens Extractor.
+ * Authentication is performed either through Xiaomi's QR flow or by importing an
+ * already-authenticated session from the dedicated XiaomiLoginActivity WebView.
+ * The app never receives the user's Xiaomi password in native or JavaScript code.
  */
 public final class XiaomiCloudClient {
     private static final String[] SERVERS = {"cn", "de", "us", "ru", "tw", "sg", "in", "i2"};
@@ -48,10 +42,13 @@ public final class XiaomiCloudClient {
     private static final String USER_AGENT = "X20Diagnostic-Android APP/com.xiaomi.mihome APPV/10.5.201";
 
     private final CookieManager cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+    // QR state
     private String qrImageUrl;
     private String loginUrl;
     private String longPollingUrl;
     private int qrTimeoutSeconds = 120;
+
+    // Authenticated Cloud session
     private String ssecurity;
     private String userId;
     private String serviceToken;
@@ -82,8 +79,7 @@ public final class XiaomiCloudClient {
             throw new IllegalStateException("A Xiaomi não retornou a URL de autenticação esperada");
         }
 
-        JSONObject out = new JSONObject();
-        out.put("ok", true);
+        JSONObject out = okState("qr_ready");
         out.put("loginUrl", loginUrl);
         out.put("qrImageUrl", qrImageUrl);
         out.put("timeout", qrTimeoutSeconds);
@@ -92,16 +88,15 @@ public final class XiaomiCloudClient {
 
     public JSONObject pollQrAndFetchDevices() throws Exception {
         if (longPollingUrl == null || longPollingUrl.isEmpty()) {
-            throw new IllegalStateException("Sessão de login não iniciada");
+            throw new IllegalStateException("Sessão de login QR não iniciada");
         }
 
         HttpResult r = request("GET", longPollingUrl, null, 12000, 15000);
         if (r.code != 200) {
-            JSONObject pending = new JSONObject();
-            pending.put("ok", true);
+            JSONObject pending = okState("pending");
             pending.put("authorized", false);
             pending.put("http", r.code);
-            pending.put("message", "Autorização ainda não concluída. Conclua o login Xiaomi e tente novamente.");
+            pending.put("message", "Autorização QR ainda não concluída ou expirada.");
             return pending;
         }
 
@@ -109,25 +104,79 @@ public final class XiaomiCloudClient {
         try {
             data = parseXiaomiJson(r.text);
         } catch (Exception ex) {
-            JSONObject pending = new JSONObject();
-            pending.put("ok", true);
+            JSONObject pending = okState("pending");
             pending.put("authorized", false);
-            pending.put("message", "A Xiaomi ainda não confirmou o login.");
+            pending.put("message", "A Xiaomi ainda não confirmou o login QR.");
             return pending;
         }
 
         ssecurity = data.optString("ssecurity", "");
-        userId = String.valueOf(data.opt("userId"));
+        userId = stringOrNull(data.opt("userId"));
         String location = data.optString("location", "");
-        if (ssecurity.isEmpty() || location.isEmpty() || "null".equals(userId)) {
-            JSONObject pending = new JSONObject();
-            pending.put("ok", true);
+        if (ssecurity.isEmpty() || location.isEmpty() || userId == null) {
+            JSONObject pending = okState("pending");
             pending.put("authorized", false);
-            pending.put("message", "Login ainda pendente ou expirado.");
+            pending.put("message", "Login QR ainda pendente ou expirado.");
             return pending;
         }
+        return finishLoginAndFetch(location);
+    }
 
-        // Follow Xiaomi's STS location and let CookieManager collect serviceToken.
+    /**
+     * Uses cookies created by Xiaomi's own login page in XiaomiLoginActivity.
+     * No username/password is passed to this class.
+     */
+    public JSONObject browserSessionLogin(String accountCookieHeader, String stsCookieHeader) throws Exception {
+        if (accountCookieHeader == null || accountCookieHeader.trim().isEmpty()) {
+            throw new IllegalStateException("Nenhuma sessão Xiaomi encontrada. Abra o login oficial e entre na sua conta primeiro.");
+        }
+
+        importCookieHeader(accountCookieHeader, ".xiaomi.com");
+        if (stsCookieHeader != null && !stsCookieHeader.trim().isEmpty()) {
+            importCookieHeader(stsCookieHeader, ".api.io.mi.com");
+            importCookieHeader(stsCookieHeader, ".io.mi.com");
+        }
+
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("Content-Type", "application/x-www-form-urlencoded");
+        headers.put("Cookie", accountCookieHeader);
+
+        HttpResult r = request("GET", "https://account.xiaomi.com/pass/serviceLogin?sid=xiaomiio&_json=true", headers, 10000, 10000);
+        if (r.code != 200) throw new IllegalStateException("Conta Xiaomi retornou HTTP " + r.code + " ao validar a sessão");
+        JSONObject data = parseXiaomiJson(r.text);
+
+        ssecurity = data.optString("ssecurity", "");
+        userId = stringOrNull(data.opt("userId"));
+        String location = data.optString("location", "");
+        if (ssecurity.isEmpty() || userId == null || location.isEmpty()) {
+            if (!data.optString("_sign", "").isEmpty()) {
+                throw new IllegalStateException("A Conta Xiaomi ainda não está autenticada. Volte em “Login oficial Xiaomi”, conclua o login e tente novamente.");
+            }
+            throw new IllegalStateException("A Xiaomi não retornou os dados de sessão esperados. Tente sair e entrar novamente no login oficial.");
+        }
+
+        return finishLoginAndFetch(location);
+    }
+
+    private void importCookieHeader(String header, String domain) throws Exception {
+        if (header == null) return;
+        for (String part : header.split(";")) {
+            String p = part.trim();
+            int eq = p.indexOf('=');
+            if (eq <= 0) continue;
+            String name = p.substring(0, eq).trim();
+            String value = p.substring(eq + 1).trim();
+            if (name.isEmpty()) continue;
+            HttpCookie c = new HttpCookie(name, value);
+            c.setDomain(domain);
+            c.setPath("/");
+            c.setSecure(true);
+            String host = domain.startsWith(".") ? domain.substring(1) : domain;
+            cookies.getCookieStore().add(new URI("https://" + host + "/"), c);
+        }
+    }
+
+    private JSONObject finishLoginAndFetch(String location) throws Exception {
         request("GET", location, null, 10000, 12000);
         serviceToken = findCookie("serviceToken");
         if (serviceToken == null || serviceToken.isEmpty()) {
@@ -137,6 +186,7 @@ public final class XiaomiCloudClient {
         JSONObject cloud = fetchDevicesAllServers();
         cloud.put("ok", true);
         cloud.put("authorized", true);
+        cloud.put("authState", "authorized");
         return cloud;
     }
 
@@ -162,7 +212,6 @@ public final class XiaomiCloudClient {
                     }
                 }
 
-                // Include shared homes as the token extractor does.
                 try {
                     JSONObject cnt = encryptedCall(server, "/v2/user/get_device_cnt", "{\"fetch_own\":true,\"fetch_share\":true}");
                     JSONObject cr = cnt.optJSONObject("result");
@@ -212,9 +261,6 @@ public final class XiaomiCloudClient {
                 s.put("error", safeMessage(ex));
             }
             serverStatus.put(s);
-
-            // Once the X20 Max is found, there is no reason to expose the user's other
-            // regions/devices. This also keeps the flow quick on mobile.
             if (foundTarget) break;
         }
 
@@ -234,8 +280,7 @@ public final class XiaomiCloudClient {
 
         LinkedHashMap<String, String> plain = new LinkedHashMap<>();
         plain.put("data", data);
-        long millis = System.currentTimeMillis();
-        String nonce = generateNonce(millis);
+        String nonce = generateNonce(System.currentTimeMillis());
         String signedNonce = signedNonce(nonce);
 
         LinkedHashMap<String, String> withHash = new LinkedHashMap<>(plain);
@@ -296,29 +341,13 @@ public final class XiaomiCloudClient {
         parts.add(path);
         for (Map.Entry<String, String> e : params.entrySet()) parts.add(e.getKey() + "=" + e.getValue());
         parts.add(signedNonce);
-        String joined = join(parts, "&");
-        byte[] sha1 = MessageDigest.getInstance("SHA-1").digest(joined.getBytes(StandardCharsets.UTF_8));
+        byte[] sha1 = MessageDigest.getInstance("SHA-1").digest(join(parts, "&").getBytes(StandardCharsets.UTF_8));
         return Base64.encodeToString(sha1, Base64.NO_WRAP);
-    }
-
-    @SuppressWarnings("unused")
-    private static String generateSignature(String url, String signedNonce, String nonce, Map<String, String> params) throws Exception {
-        int idx = url.indexOf(".com");
-        String path = idx >= 0 ? url.substring(idx + 4) : new URL(url).getPath();
-        List<String> parts = new ArrayList<>();
-        parts.add(path);
-        parts.add(signedNonce);
-        parts.add(nonce);
-        for (Map.Entry<String, String> e : params.entrySet()) parts.add(e.getKey() + "=" + e.getValue());
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(Base64.decode(signedNonce, Base64.DEFAULT), "HmacSHA256"));
-        return Base64.encodeToString(mac.doFinal(join(parts, "&").getBytes(StandardCharsets.UTF_8)), Base64.NO_WRAP);
     }
 
     private static String encryptRc4(String passwordB64, String payload) {
         byte[] key = Base64.decode(passwordB64, Base64.DEFAULT);
-        byte[] out = rc4(key, payload.getBytes(StandardCharsets.UTF_8), 1024);
-        return Base64.encodeToString(out, Base64.NO_WRAP);
+        return Base64.encodeToString(rc4(key, payload.getBytes(StandardCharsets.UTF_8), 1024), Base64.NO_WRAP);
     }
 
     private static String decryptRc4(String passwordB64, String payloadB64) {
@@ -329,18 +358,18 @@ public final class XiaomiCloudClient {
 
     private static byte[] rc4(byte[] key, byte[] input, int discard) {
         int[] s = new int[256];
-        for (int i = 0; i < 256; i++) s[i] = i;
+        for (int x = 0; x < 256; x++) s[x] = x;
         int j = 0;
-        for (int i = 0; i < 256; i++) {
-            j = (j + s[i] + (key[i % key.length] & 0xFF)) & 0xFF;
-            int t = s[i]; s[i] = s[j]; s[j] = t;
+        for (int x = 0; x < 256; x++) {
+            j = (j + s[x] + (key[x % key.length] & 0xFF)) & 0xFF;
+            int t = s[x]; s[x] = s[j]; s[j] = t;
         }
         int i = 0; j = 0;
         for (int n = 0; n < discard; n++) {
             i = (i + 1) & 0xFF;
             j = (j + s[i]) & 0xFF;
             int t = s[i]; s[i] = s[j]; s[j] = t;
-            s[(s[i] + s[j]) & 0xFF] ^= 0; // advance PRGA without storing byte
+            int ignored = s[(s[i] + s[j]) & 0xFF];
         }
         byte[] out = new byte[input.length];
         for (int n = 0; n < input.length; n++) {
@@ -355,9 +384,10 @@ public final class XiaomiCloudClient {
 
     private HttpResult request(String method, String url, Map<String, String> headers, int connectTimeout, int readTimeout) throws Exception {
         URL current = new URL(url);
+        String currentMethod = method;
         for (int redirect = 0; redirect < 8; redirect++) {
             HttpURLConnection c = (HttpURLConnection) current.openConnection();
-            c.setRequestMethod(method);
+            c.setRequestMethod(currentMethod);
             c.setConnectTimeout(connectTimeout);
             c.setReadTimeout(readTimeout);
             c.setInstanceFollowRedirects(false);
@@ -371,7 +401,7 @@ public final class XiaomiCloudClient {
             c.disconnect();
             if (code >= 300 && code < 400 && location != null && !location.isEmpty()) {
                 current = new URL(current, location);
-                method = "GET";
+                currentMethod = "GET";
                 continue;
             }
             return new HttpResult(code, text, current.toString());
@@ -398,8 +428,7 @@ public final class XiaomiCloudClient {
 
     private static JSONObject parseXiaomiJson(String text) throws Exception {
         if (text == null) throw new IllegalArgumentException("Resposta Xiaomi vazia");
-        String clean = text.replace("&&&START&&&", "").trim();
-        return new JSONObject(clean);
+        return new JSONObject(text.replace("&&&START&&&", "").trim());
     }
 
     private static String encodeQuery(Map<String, String> params) throws Exception {
@@ -427,6 +456,19 @@ public final class XiaomiCloudClient {
     private static String safeMessage(Throwable t) {
         String m = t.getMessage();
         return m == null ? t.getClass().getSimpleName() : m;
+    }
+
+    private static String stringOrNull(Object value) {
+        if (value == null || value == JSONObject.NULL) return null;
+        String s = String.valueOf(value);
+        return s.isEmpty() || "null".equals(s) ? null : s;
+    }
+
+    private static JSONObject okState(String state) throws Exception {
+        JSONObject o = new JSONObject();
+        o.put("ok", true);
+        o.put("authState", state);
+        return o;
     }
 
     private static final class HomeRef {

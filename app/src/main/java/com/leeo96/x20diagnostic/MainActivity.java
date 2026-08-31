@@ -22,7 +22,6 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         webView = new WebView(this);
         setContentView(webView);
 
@@ -32,6 +31,7 @@ public class MainActivity extends Activity {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        settings.setSaveFormData(false);
 
         webView.addJavascriptInterface(new MiioBridge(), "AndroidMiio");
         webView.loadUrl("file:///android_asset/index.html");
@@ -58,8 +58,7 @@ public class MainActivity extends Activity {
             if (msg == null || msg.trim().isEmpty()) msg = t.getClass().getSimpleName();
             out.put("error", msg);
             out.put("type", t.getClass().getSimpleName());
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) {}
         return out;
     }
 
@@ -101,13 +100,53 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void openOfficialLogin() {
+            runOnUiThread(() -> startActivity(new Intent(MainActivity.this, XiaomiLoginActivity.class)));
+        }
+
+        @JavascriptInterface
+        public void cloudFromBrowserSession(String requestId) {
+            executor.execute(() -> {
+                try {
+                    android.webkit.CookieManager wc = android.webkit.CookieManager.getInstance();
+                    String accountCookies = wc.getCookie("https://account.xiaomi.com");
+                    String stsCookies = wc.getCookie("https://sts.api.io.mi.com");
+                    XiaomiCloudClient client = new XiaomiCloudClient();
+                    cloudClient = client;
+                    deliver(requestId, client.browserSessionLogin(accountCookies, stsCookies));
+                } catch (Throwable t) {
+                    deliver(requestId, errorPayload(t));
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void clearOfficialLoginSession(String requestId) {
+            runOnUiThread(() -> {
+                try {
+                    android.webkit.CookieManager cm = android.webkit.CookieManager.getInstance();
+                    cm.removeAllCookies(value -> {
+                        cm.flush();
+                        JSONObject out = new JSONObject();
+                        try {
+                            out.put("ok", true);
+                            out.put("cleared", true);
+                        } catch (Exception ignored) {}
+                        deliver(requestId, out);
+                    });
+                } catch (Throwable t) {
+                    deliver(requestId, errorPayload(t));
+                }
+            });
+        }
+
+        @JavascriptInterface
         public void cloudStart(String requestId) {
             executor.execute(() -> {
                 try {
                     XiaomiCloudClient client = new XiaomiCloudClient();
-                    JSONObject result = client.startQrLogin();
                     cloudClient = client;
-                    deliver(requestId, result);
+                    deliver(requestId, client.startQrLogin());
                 } catch (Throwable t) {
                     cloudClient = null;
                     deliver(requestId, errorPayload(t));
@@ -134,13 +173,14 @@ public class MainActivity extends Activity {
                 try {
                     Uri uri = Uri.parse(url);
                     String host = uri.getHost();
-                    if (!"https".equalsIgnoreCase(uri.getScheme()) || host == null || !host.endsWith("xiaomi.com")) {
-                        throw new IllegalArgumentException("URL de login não pertence à Xiaomi");
+                    if (!"https".equalsIgnoreCase(uri.getScheme()) || host == null ||
+                            !(host.equals("xiaomi.com") || host.endsWith(".xiaomi.com") || host.equals("mi.com") || host.endsWith(".mi.com"))) {
+                        throw new IllegalArgumentException("URL não pertence a um domínio oficial Xiaomi");
                     }
                     startActivity(new Intent(Intent.ACTION_VIEW, uri));
                 } catch (Throwable t) {
                     JSONObject out = errorPayload(t);
-                    final String js = "window.onExternalOpenError(" + JSONObject.quote(out.optString("error", "Erro ao abrir login")) + ");";
+                    final String js = "window.onExternalOpenError(" + JSONObject.quote(out.optString("error", "Erro ao abrir página Xiaomi")) + ");";
                     webView.evaluateJavascript(js, null);
                 }
             });
