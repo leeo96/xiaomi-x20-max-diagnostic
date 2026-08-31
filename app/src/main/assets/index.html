@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>X20 Max Diagnostic</title>
+<style>
+:root{font-family:system-ui,-apple-system,Roboto,sans-serif;color:#17202a;background:#f3f5f7}*{box-sizing:border-box}body{margin:0;padding:18px 14px 40px}.wrap{max-width:760px;margin:auto}h1{font-size:23px;margin:4px 0 2px}.sub{color:#65717d;font-size:13px;margin-bottom:16px}.card{background:#fff;border:1px solid #dce2e7;border-radius:14px;padding:14px;margin:10px 0;box-shadow:0 1px 2px #0000000c}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:520px){.row{grid-template-columns:1fr}}label{display:block;font-size:12px;font-weight:700;color:#53606c;margin:2px 0 5px}input{width:100%;padding:12px;border:1px solid #cbd3da;border-radius:10px;font-size:15px;background:#fff}button{border:0;border-radius:10px;padding:12px 13px;font-weight:700;font-size:14px;background:#111827;color:#fff;margin:5px 5px 5px 0}button.secondary{background:#e9edf1;color:#17202a}button.warn{background:#7c4a03}button:disabled{opacity:.45}.status{padding:10px;border-radius:10px;background:#eef2f5;font-size:13px;white-space:pre-wrap}.status.ok{background:#e8f6ec;color:#146c2e}.status.err{background:#fdecec;color:#9b1c1c}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}@media(max-width:520px){.grid{grid-template-columns:1fr}}.metric{border:1px solid #e2e7eb;border-radius:10px;padding:10px}.metric small{display:block;color:#687580}.metric b{font-size:17px;word-break:break-word}.fault{color:#a12622}.good{color:#137333}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;border-bottom:1px solid #e5e9ed;padding:8px 5px;vertical-align:top}th{color:#5f6c77;position:sticky;top:0;background:#fff}.scroll{overflow:auto;max-height:430px}code{font-size:11px}.tiny{font-size:11px;color:#6b7782}.pill{display:inline-block;padding:3px 7px;border-radius:999px;background:#eef2f5;font-size:11px}.changed{background:#fff5cf}.actions{display:flex;flex-wrap:wrap;gap:3px}.check{display:flex;align-items:center;gap:7px;font-size:12px;color:#53606c;margin-top:8px}.check input{width:auto}.divider{height:1px;background:#e6eaee;margin:12px 0}
+</style>
+</head>
+<body><div class="wrap">
+<h1>Xiaomi X20 Max — Diagnóstico</h1>
+<div class="sub">Leitura local e somente leitura via MiIO/MIoT · modelo esperado: <b>xiaomi.vacuum.d109gl</b></div>
+
+<div class="card">
+  <div class="row">
+    <div><label>IP do robô</label><input id="ip" inputmode="decimal" placeholder="192.168.1.123"></div>
+    <div><label>Token MiIO (32 hex)</label><input id="token" type="password" autocapitalize="off" autocomplete="off" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"></div>
+  </div>
+  <label class="check"><input type="checkbox" id="remember"> lembrar IP e token somente neste app</label>
+  <div class="actions">
+    <button class="secondary" onclick="testHello()">Testar rede</button>
+    <button onclick="readDiagnostic()">Ler diagnóstico</button>
+  </div>
+  <div id="status" class="status">Pronto. O teste de rede não precisa do token.</div>
+</div>
+
+<div class="card">
+  <b>Leituras principais</b>
+  <div class="grid" style="margin-top:10px">
+    <div class="metric"><small>Fault · 2/3</small><b id="mFault">—</b></div>
+    <div class="metric"><small>Fault IDs · 2/66</small><b id="mFaultIds">—</b></div>
+    <div class="metric"><small>Status da base · 2/18</small><b id="mBase">—</b></div>
+    <div class="metric"><small>Water check · 2/54</small><b id="mWater">—</b></div>
+    <div class="metric"><small>Water check list · 2/53</small><b id="mWaterList">—</b></div>
+    <div class="metric"><small>Notice · 2/72</small><b id="mNotice">—</b></div>
+  </div>
+  <div id="faultExplain" class="tiny" style="margin-top:10px"></div>
+</div>
+
+<div class="card">
+  <b>Comparar sensores/estados</b>
+  <p class="tiny">Tire o Snapshot A com tudo montado. Depois retire o tanque de água suja (ou a bandeja) e tire o Snapshot B. O app destaca qualquer propriedade MIoT que mudou.</p>
+  <div class="actions">
+    <button class="secondary" onclick="snapshotA()">Snapshot A</button>
+    <button class="secondary" onclick="snapshotB()">Snapshot B + comparar</button>
+    <button class="warn" onclick="scanService2()">Varrer SIID 2 (1–100)</button>
+  </div>
+  <div id="snapInfo" class="status">Nenhum snapshot salvo.</div>
+</div>
+
+<div class="card">
+  <b>Propriedades retornadas</b>
+  <div class="scroll"><table><thead><tr><th>Prop.</th><th>Nome</th><th>Code</th><th>Valor</th></tr></thead><tbody id="results"></tbody></table></div>
+</div>
+
+<div class="card tiny">
+  Segurança: esta versão implementa apenas <code>get_properties</code>. Não há código para <code>set_properties</code>, iniciar limpeza, mover o robô ou executar ações. O token é usado apenas para criptografar a comunicação MiIO local com o IP informado.
+</div>
+</div>
+<script>
+const DIAG=[
+ {siid:2,piid:3,name:'fault'},
+ {siid:2,piid:18,name:'base-station-working-status'},
+ {siid:2,piid:53,name:'water-check-list'},
+ {siid:2,piid:54,name:'water-check-status'},
+ {siid:2,piid:60,name:'mop-water-output-level-no-tank'},
+ {siid:2,piid:61,name:'frequency-mop-wash-no-tank'},
+ {siid:2,piid:62,name:'auto-water-change-installed'},
+ {siid:2,piid:66,name:'fault-ids'},
+ {siid:2,piid:67,name:'action-result'},
+ {siid:2,piid:72,name:'notice'}
+];
+let pending={}, snapshotAData=null, lastResults=[];
+const $=id=>document.getElementById(id);
+function rid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
+function setStatus(s,kind=''){const e=$('status');e.textContent=s;e.className='status '+kind}
+function valText(v){if(v===undefined)return '—';if(v===null)return 'null';if(typeof v==='object')return JSON.stringify(v);return String(v)}
+function savePrefs(){if($('remember').checked){localStorage.setItem('ip',$('ip').value.trim());localStorage.setItem('token',$('token').value.trim());localStorage.setItem('remember','1')}else{localStorage.removeItem('token');localStorage.setItem('ip',$('ip').value.trim());localStorage.removeItem('remember')}}
+function restorePrefs(){$('ip').value=localStorage.getItem('ip')||'';if(localStorage.getItem('remember')==='1'){$('remember').checked=true;$('token').value=localStorage.getItem('token')||''}}
+function validate(requireToken=true){const ip=$('ip').value.trim(),token=$('token').value.trim();if(!ip){setStatus('Informe o IP do robô.','err');return null}if(requireToken&&!/^[0-9a-fA-F]{32}$/.test(token)){setStatus('Informe um token MiIO válido com 32 caracteres hexadecimais.','err');return null}savePrefs();return {ip,token}}
+function nativeCall(kind,props){return new Promise((resolve,reject)=>{const cfg=validate(kind!=='hello');if(!cfg){reject(new Error('dados inválidos'));return}const id=rid();pending[id]={resolve,reject};setStatus(kind==='hello'?'Enviando MiIO hello para '+cfg.ip+'…':'Consultando o X20 Max…');try{if(kind==='hello')AndroidMiio.hello(id,cfg.ip);else AndroidMiio.query(id,cfg.ip,cfg.token,JSON.stringify(props))}catch(e){delete pending[id];reject(e)}})}
+window.onNativeResult=function(id,json){const p=pending[id];if(!p)return;delete pending[id];try{const data=JSON.parse(json);if(data.ok)p.resolve(data);else p.reject(new Error((data.error||'Erro desconhecido')+' ['+(data.type||'')+']'))}catch(e){p.reject(e)}};
+async function testHello(){try{const d=await nativeCall('hello');setStatus('Dispositivo MiIO respondeu. Device ID: '+d.deviceId+' · stamp: '+d.stamp,'ok')}catch(e){setStatus('Sem resposta: '+e.message+'. Confirme que o celular está no mesmo Wi‑Fi e que o IP está correto.','err')}}
+async function query(props){const d=await nativeCall('query',props);lastResults=d.results||[];render(lastResults);setStatus('Leitura concluída: '+lastResults.length+' respostas · Device ID '+d.deviceId,'ok');return lastResults}
+async function readDiagnostic(){try{const r=await query(DIAG);renderMetrics(r)}catch(e){setStatus('Falha na leitura: '+e.message,'err')}}
+function byProp(results,s,p){return results.find(x=>Number(x.siid)===s&&Number(x.piid)===p)}
+function metric(id,r){const e=$(id);if(!r){e.textContent='sem retorno';e.className=''}else if(Number(r.code)!==0){e.textContent='code '+r.code;e.className='fault'}else{e.textContent=valText(r.value);e.className=''}}
+function renderMetrics(r){const f=byProp(r,2,3),ids=byProp(r,2,66);metric('mFault',f);metric('mFaultIds',ids);metric('mBase',byProp(r,2,18));metric('mWater',byProp(r,2,54));metric('mWaterList',byProp(r,2,53));metric('mNotice',byProp(r,2,72));let codes=[];if(f&&f.value!==undefined)codes.push(Number(f.value));if(ids&&ids.value!==undefined){if(Array.isArray(ids.value))ids.value.forEach(x=>codes.push(Number(x)));else codes.push(Number(ids.value))}codes=[...new Set(codes.filter(Number.isFinite))];const notes=[];if(codes.includes(100027))notes.push('100027: tanque de água suja cheio ou não instalado.');if(codes.includes(100028))notes.push('100028: erro da bandeja/base (água acumulada/obstrução).');$('faultExplain').textContent=notes.join(' ')}
+function render(r,changedKeys=new Set()){const tb=$('results');tb.innerHTML='';r.slice().sort((a,b)=>(a.siid-b.siid)||(a.piid-b.piid)).forEach(x=>{const k=x.siid+'/'+x.piid,tr=document.createElement('tr');if(changedKeys.has(k))tr.className='changed';[k,x.name||'',x.code===undefined?'':x.code,valText(x.value)].forEach(t=>{const td=document.createElement('td');td.textContent=t;tr.appendChild(td)});tb.appendChild(tr)})}
+function makeScan2(){const a=[];for(let p=1;p<=100;p++)a.push({siid:2,piid:p,name:'SIID 2 / PIID '+p});return a}
+async function scanService2(){try{const r=await query(makeScan2());const useful=r.filter(x=>Number(x.code)===0);lastResults=useful;render(useful);setStatus('Varredura concluída. '+useful.length+' propriedades legíveis/respostas úteis em SIID 2.','ok')}catch(e){setStatus('Falha na varredura: '+e.message,'err')}}
+async function snapshotA(){try{const r=await query(makeScan2());snapshotAData=indexResults(r);$('snapInfo').textContent='Snapshot A salvo com '+Object.keys(snapshotAData).length+' respostas. Agora altere fisicamente o estado (ex.: retire o tanque) e toque em Snapshot B.';$('snapInfo').className='status ok'}catch(e){$('snapInfo').textContent='Erro no Snapshot A: '+e.message;$('snapInfo').className='status err'}}
+async function snapshotB(){if(!snapshotAData){$('snapInfo').textContent='Faça primeiro o Snapshot A.';$('snapInfo').className='status err';return}try{const r=await query(makeScan2()),b=indexResults(r),keys=new Set([...Object.keys(snapshotAData),...Object.keys(b)]),changed=[];for(const k of keys){const av=snapshotAData[k],bv=b[k];if(JSON.stringify(av)!==JSON.stringify(bv))changed.push(k)}const changedSet=new Set(changed);render(r,changedSet);$('snapInfo').textContent=changed.length?'Mudaram '+changed.length+' propriedades: '+changed.join(', '):'Nenhuma propriedade de SIID 2 / PIID 1–100 mudou entre A e B.';$('snapInfo').className='status '+(changed.length?'ok':'');}catch(e){$('snapInfo').textContent='Erro no Snapshot B: '+e.message;$('snapInfo').className='status err'}}
+function indexResults(r){const o={};r.forEach(x=>{const k=x.siid+'/'+x.piid;o[k]={code:x.code,value:x.value}});return o}
+restorePrefs();
+</script></body></html>
