@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
     private void injectCloudSnapshotUi() {
         String js = "(function(){" +
                 "if(window.__cloudSnapInstalled)return;window.__cloudSnapInstalled=true;" +
-                "var sub=document.querySelector('.sub');if(sub)sub.innerHTML=sub.innerHTML+' · <b>v0.3.5 cloud</b>';" +
+                "var sub=document.querySelector('.sub');if(sub)sub.innerHTML=sub.innerHTML+' · <b>v0.3.6 timeline</b>';" +
                 "var P=[" +
                 "{siid:2,piid:2,name:'status'}," +
                 "{siid:2,piid:3,name:'fault'}," +
@@ -74,15 +74,29 @@ public class MainActivity extends Activity {
                 "{siid:18,piid:1,name:'detergent-left-level'}," +
                 "{siid:20,piid:7,name:'sewage-self-cleaning'}," +
                 "{siid:20,piid:8,name:'self-cleaning-time'}];" +
-                "window.__cloudProps=P;window.__cloudSnapA=null;" +
+                "var T=[" +
+                "{siid:2,piid:2,name:'status'}," +
+                "{siid:2,piid:3,name:'fault'}," +
+                "{siid:2,piid:18,name:'base-station-working-status'}," +
+                "{siid:2,piid:53,name:'water-check-list'}," +
+                "{siid:2,piid:54,name:'water-check-status'}," +
+                "{siid:2,piid:66,name:'fault-ids'}," +
+                "{siid:2,piid:67,name:'action-result'}," +
+                "{siid:2,piid:72,name:'notice'}," +
+                "{siid:20,piid:7,name:'sewage-self-cleaning'}," +
+                "{siid:20,piid:8,name:'self-cleaning-time'}];" +
+                "window.__cloudProps=P;window.__traceProps=T;window.__cloudSnapA=null;" +
                 "function vm(v){if(v===null)return'null';if(typeof v==='object')return JSON.stringify(v);return String(v)}" +
                 "function mp(rs){var m={};(rs||[]).forEach(function(r){if(r.code===0||r.code===undefined)m[r.siid+'/'+r.piid]={v:vm(r.value),name:r.name||''};});return m}" +
                 "function summary(d){var m=mp(d.results),ks=['2/2','2/3','2/18','2/53','2/54','2/66','2/67','2/70','2/72','20/7','20/8'];return ks.filter(k=>m[k]).map(k=>k+' '+m[k].name+' = '+m[k].v).join('\\n')}" +
+                "function traceLine(s){if(!s.ok)return '+'+Math.round((s.elapsedMs||0)/1000)+'s ERRO: '+(s.error||'erro');var m=mp(s.results),keys=['2/2','2/3','2/18','2/53','2/54','2/66','2/67','2/72','20/7','20/8'];return '+'+Math.round((s.elapsedMs||0)/1000)+'s  '+keys.filter(k=>m[k]).map(k=>k+'='+m[k].v).join(' | ')}" +
+                "function traceSig(s){if(!s.ok)return 'ERR:'+s.error;var m=mp(s.results),keys=['2/2','2/3','2/18','2/53','2/54','2/66','2/67','2/72','20/7','20/8'];return keys.map(k=>k+'='+(m[k]?m[k].v:'<sem>')).join('|')}" +
                 "window.cloudReadNow=async function(){var o=document.getElementById('cloudSnapOut');o.textContent='Lendo propriedades diretamente pela Xiaomi Cloud…';try{var d=await rawNative(function(id){AndroidMiio.cloudQuery(id,JSON.stringify(P))});o.textContent='Cloud '+d.server+' · DID '+d.did+'\\n\\n'+summary(d);o.className='status ok'}catch(e){o.textContent='Falha na leitura Cloud: '+e.message;o.className='status err'}};" +
                 "window.cloudSnapA=async function(){var o=document.getElementById('cloudSnapOut');o.textContent='Capturando Snapshot Cloud A…';try{var d=await rawNative(function(id){AndroidMiio.cloudQuery(id,JSON.stringify(P))});window.__cloudSnapA=mp(d.results);o.textContent='Snapshot Cloud A salvo ('+Object.keys(window.__cloudSnapA).length+' propriedades). Agora provoque a operação/erro e faça B.';o.className='status ok'}catch(e){o.textContent='Falha no Snapshot A: '+e.message;o.className='status err'}};" +
                 "window.cloudSnapB=async function(){var o=document.getElementById('cloudSnapOut');if(!window.__cloudSnapA){o.textContent='Faça primeiro o Snapshot Cloud A.';o.className='status err';return}o.textContent='Capturando Snapshot Cloud B…';try{var d=await rawNative(function(id){AndroidMiio.cloudQuery(id,JSON.stringify(P))});var b=mp(d.results),a=window.__cloudSnapA,keys=Array.from(new Set(Object.keys(a).concat(Object.keys(b)))).sort(),chg=[];keys.forEach(function(k){var av=a[k]?a[k].v:'<sem resposta>',bv=b[k]?b[k].v:'<sem resposta>';if(av!==bv)chg.push(k+' '+((b[k]&&b[k].name)||(a[k]&&a[k].name)||'')+' : '+av+'  →  '+bv)});o.textContent=chg.length?('Mudanças Cloud detectadas ('+chg.length+'):\\n\\n'+chg.join('\\n')):'Nenhuma das propriedades Cloud monitoradas mudou entre A e B.';o.className=chg.length?'status ok':'status'}catch(e){o.textContent='Falha no Snapshot B: '+e.message;o.className='status err'}};" +
+                "window.cloudRecordTimeline=async function(){var o=document.getElementById('cloudSnapOut'),b=document.getElementById('timelineBtn');if(b)b.disabled=true;o.textContent='Gravando 60 s pela Xiaomi Cloud (1 leitura a cada 3 s)…\\n\\nAgora abra o Xiaomi Home e mande a base lavar os mops. Volte aqui após cerca de 1 minuto.';o.className='status';try{var d=await rawNative(function(id){AndroidMiio.cloudRecordTimeline(id,JSON.stringify(T),60,3)});var ss=d.samples||[],lines=[],prev=null,changes=0;ss.forEach(function(s,i){var sig=traceSig(s);if(i===0||sig!==prev){lines.push(traceLine(s));if(i>0)changes++;}prev=sig});if(ss.length>1&&lines.length===1)lines.push('+'+Math.round(((ss[ss.length-1].elapsedMs)||0)/1000)+'s  (sem alteração; estado igual ao início)');o.textContent='Timeline Cloud concluída · '+d.server+' · '+ss.length+' amostras\\nMudanças detectadas: '+changes+'\\n\\n'+lines.join('\\n\\n');o.className=changes?'status ok':'status'}catch(e){o.textContent='Falha ao gravar timeline Cloud: '+e.message;o.className='status err'}finally{if(b)b.disabled=false}};" +
                 "var cards=document.querySelectorAll('.card'),anchor=null;for(var i=0;i<cards.length;i++){if(cards[i].textContent.indexOf('Comparar sensores/estados')>=0){anchor=cards[i];break}}" +
-                "var c=document.createElement('div');c.className='card';c.innerHTML='<b>Diagnóstico pela Xiaomi Cloud</b><p class=\"tiny\">O X20 Max pode devolver valores locais em cache. Estes botões consultam <code>miotspec/prop/get</code> diretamente na Cloud usando a sessão Xiaomi autenticada.</p><div class=\"actions\"><button class=\"goodbtn\" onclick=\"cloudReadNow()\">Ler Cloud agora</button><button class=\"secondary\" onclick=\"cloudSnapA()\">Snapshot Cloud A</button><button class=\"secondary\" onclick=\"cloudSnapB()\">Snapshot Cloud B + comparar</button></div><div id=\"cloudSnapOut\" class=\"status\">Faça o login Xiaomi uma vez; depois use estes snapshots em vez dos snapshots locais.</div>';" +
+                "var c=document.createElement('div');c.className='card';c.innerHTML='<b>Diagnóstico pela Xiaomi Cloud</b><p class=\"tiny\">O X20 Max pode devolver valores locais em cache. Estes botões consultam <code>miotspec/prop/get</code> diretamente na Cloud usando a sessão Xiaomi autenticada.</p><div class=\"actions\"><button class=\"goodbtn\" onclick=\"cloudReadNow()\">Ler Cloud agora</button><button class=\"secondary\" onclick=\"cloudSnapA()\">Snapshot Cloud A</button><button class=\"secondary\" onclick=\"cloudSnapB()\">Snapshot Cloud B + comparar</button><button id=\"timelineBtn\" class=\"warn\" onclick=\"cloudRecordTimeline()\">Gravar tentativa 60 s</button></div><p class=\"tiny\"><b>Timeline:</b> toque em Gravar, abra imediatamente o Xiaomi Home e mande lavar os mops. A gravação é feita pelo código nativo em segundo plano, a cada 3 s, sem enviar comandos ao robô.</p><div id=\"cloudSnapOut\" class=\"status\">Faça o login Xiaomi uma vez; depois use estes snapshots em vez dos snapshots locais.</div>';" +
                 "if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(c,anchor);else document.querySelector('.wrap').appendChild(c);" +
                 "})();";
         webView.evaluateJavascript(js, null);
@@ -144,6 +158,19 @@ public class MainActivity extends Activity {
                     String accountCookies = wc.getCookie("https://account.xiaomi.com");
                     CloudSnapshotClient client = new CloudSnapshotClient();
                     deliver(requestId, client.fetchProperties(accountCookies, properties));
+                } catch (Throwable t) { deliver(requestId, errorPayload(t)); }
+            });
+        }
+
+        @JavascriptInterface
+        public void cloudRecordTimeline(String requestId, String propertiesJson, int durationSeconds, int intervalSeconds) {
+            executor.execute(() -> {
+                try {
+                    List<MiioClient.Property> properties = MiioClient.parsePropertyList(propertiesJson);
+                    android.webkit.CookieManager wc = android.webkit.CookieManager.getInstance();
+                    String accountCookies = wc.getCookie("https://account.xiaomi.com");
+                    CloudTimelineClient client = new CloudTimelineClient();
+                    deliver(requestId, client.record(accountCookies, properties, durationSeconds, intervalSeconds));
                 } catch (Throwable t) { deliver(requestId, errorPayload(t)); }
             });
         }
